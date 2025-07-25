@@ -12,7 +12,7 @@ const app = express();
 // Middlewares
 
 const allowedOrigins = [
-  'https://gcek-cyber-buddy-frontend.vercel.app',
+  'https://gcek-cyber-buddy.vercel.app',
   'http://localhost:3000' // optional, for local dev
 ];
 
