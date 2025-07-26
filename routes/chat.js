@@ -23,61 +23,115 @@ router.post('/', authMiddleware, async (req, res) => {
       combinedInput += `\n\n[Image uploaded: ${fileData.name || 'image'}]`;
     }
 
-    // const isCyberSecurityQuery = (text) => {
-    //   const keywords = [
-    //     "cyber security", "malware", "phishing", "ransomware", "safe browsing", "online safety",
-    //     "cyber attack", "firewall", "vpn", "encryption", "cyber threat", "data breach", "hacking",
-    //     "secure password", "virus", "ddos", "2fa", "authentication", "cybercrime", "cyberbullying"
-    //   ];
+    if (message.includes("🔍 URL Scan Results for:")) {
+      const reply = "Here is the result of your URL, Thanks ";
 
-    //   const greetings = ["hi", "hello", "hey", "good morning", "good evening", "greetings"];
-    //   const identityQueries = [
-    //     "who are you", "your name", "what's your name", "tell me your name", "who is this", "what are you"
-    //   ];
+      let chat = null;
+      let newSessionId = sessionId;
 
-    //   const lowerText = text.toLowerCase();
+      if (sessionId && mongoose.Types.ObjectId.isValid(sessionId)) {
+        chat = await Chat.findOne({ _id: sessionId, user: userId });
+      }
 
-    //   return (
-    //     keywords.some(keyword => lowerText.includes(keyword)) ||
-    //     greetings.some(greet => lowerText.includes(greet)) ||
-    //     identityQueries.some(q => lowerText.includes(q))
-    //   );
-    // };
+      if (chat) {
+        chat.messages.push(
+          { sender: 'user', text: message.trim(), timestamp: new Date(), file: fileData || undefined },
+          { sender: 'ai', text: reply, source: 'GCEK Cyber buddy', timestamp: new Date() }
+        );
+        chat.updatedAt = new Date();
+        await chat.save();
+      } else {
+        chat = new Chat({
+          user: userId,
+          title: message.substring(0, 30) + (message.length > 30 ? '...' : ''),
+          messages: [
+            { sender: 'user', text: message.trim(), timestamp: new Date(), file: fileData || undefined },
+            { sender: 'ai', text: reply, source: 'GCEK Cyber Buddy', timestamp: new Date() }
+          ]
+        });
+        await chat.save();
+        newSessionId = chat._id;
+      }
 
-    // const cyberBuddyIntro = "I'm GCEK Cyber Buddy, your virtual cyber security assistant. I'm here to guide, protect, and support you in understanding digital threats, safe browsing, and online safety. Let's secure your digital world together!";
+      return res.json({ success: true, response: reply, source: 'GCEK Cyber Buddy', sessionId: newSessionId });
+    }
 
-    // const maskIdentity = (text, userQuery) => {
-    //   const lowerQuery = userQuery.toLowerCase();
+    const isCyberSecurityQuery = (text) => {
+      if (!text) return false;
 
-    //   // Respond to greeting
-    //   const greetings = ["hi", "hello", "hey", "good morning", "good evening", "greetings"];
-    //   if (greetings.some(g => lowerQuery.includes(g))) {
-    //     return `Hello! ${cyberBuddyIntro}`;
-    //   }
+      const keywords = [
+        "cyber security", "malware", "phishing", "ransomware", "safe browsing", "online safety",
+        "cyber attack", "firewall", "vpn", "encryption", "cyber threat", "data breach", "hacking",
+        "secure password", "virus", "ddos", "2fa", "authentication", "otp", "cybercrime", "cyberbullying",
+        "trojan", "spyware", "rootkit", "zero-day", "keylogger", "botnet", "identity theft", "social engineering",
+        "brute force", "backdoor", "patch management", "security audit", "penetration testing", "vulnerability",
+        "exploit", "access control", "network security", "application security", "endpoint security",
+        "information security", "cloud security", "mobile security", "web security", "sql injection",
+        "cross-site scripting", "xss", "csrf", "man-in-the-middle", "mitm", "spoofing", "digital forensics",
+        "incident response", "threat intelligence", "risk assessment", "cyber hygiene", "security awareness",
+        "security policy", "compliance", "gdpr", "hipaa", "iso 27001", "tls", "ssl", "public key", "private key",
+        "hashing", "blockchain security", "biometric authentication", "security token", "session hijacking",
+        "honeypot", "sandboxing", "network segmentation", "access logs", "cyber forensics", "ip spoofing",
+        "mac spoofing", "packet sniffing", "intrusion detection", "intrusion prevention", "siem", "soc",
+        "threat modeling", "cyber insurance", "bug bounty", "ethical hacking", "white hat", "black hat",
+        "gray hat", "cyber law", "digital footprint", "cyber espionage", "cyber warfare", "surveillance",
+        "privacy", "deep web", "dark web", "security breach", "insider threat", "security patch",
+        "zero trust", "multi-factor authentication", "mfa", "tokenization", "password manager",
+        "browser isolation", "attack vector", "security posture", "security incident", "recovery plan",
+        "cyber resilience", "data loss prevention", "dlp", "log monitoring"
 
-    //   // Respond to name/identity questions
-    //   const nameQueries = ["who are you", "your name", "what's your name", "tell me your name", "who is this", "what are you"];
-    //   if (nameQueries.some(q => lowerQuery.includes(q))) {
-    //     return cyberBuddyIntro;
-    //   }
+      ];
 
-    //   // Filter out non-cybersecurity content
-    //   if (!isCyberSecurityQuery(userQuery)) {
-    //     return "I'm only able to answer questions that are related to cyber security.";
-    //   }
+      const greetings = ["hi", "hello", "hey", "good morning", "good evening", "greetings"];
+      const identityQueries = [
+        "who are you", "your name", "what's your name", "tell me your name", "who is this", "what are you"
+      ];
 
-    //   // Replace AI identity with Cyber Buddy branding
-    //   return text
-    //     .replace(/I am [^.]*\./gi, cyberBuddyIntro)
-    //     .replace(/I am a large language model[^.]*\./gi, cyberBuddyIntro)
-    //     .replace(/I am an? AI[^.]*\./gi, cyberBuddyIntro)
-    //     .replace(/\b(gemini|google)\b/gi, "GCEK Cyber Buddy");
-    // };
+      const lowerText = text.toLowerCase();
 
+      return (
+        keywords.some(keyword => lowerText.includes(keyword)) ||
+        greetings.some(greet => lowerText.includes(greet)) ||
+        identityQueries.some(q => lowerText.includes(q))
+      );
+    };
+
+    const cyberBuddyIntro = "I'm GCEK Cyber Buddy, your virtual cyber security assistant. I'm here to guide, protect, and support you in understanding digital threats, safe browsing, and online safety. Let's secure your digital world together!";
+
+    const maskIdentity = (text, userQuery = '') => {
+      if (!userQuery || typeof userQuery !== 'string') {
+        return text; // Return original text if no user query provided
+      }
+
+      const lowerQuery = userQuery.toLowerCase();
+
+      // Respond to greeting
+      const greetings = ["hi", "hello", "hey", "good morning", "good evening", "greetings"];
+      if (greetings.some(g => lowerQuery.includes(g))) {
+        return `Hello! ${cyberBuddyIntro}`;
+      }
+
+      // Respond to name/identity questions
+      const nameQueries = ["who are you", "your name", "what's your name", "tell me your name", "who is this", "what are you"];
+      if (nameQueries.some(q => lowerQuery.includes(q))) {
+        return cyberBuddyIntro;
+      }
+
+      // Filter out non-cybersecurity content
+      if (!isCyberSecurityQuery(userQuery)) {
+        return "I'm only able to answer questions that are related to cyber security.";
+      }
+
+      // Replace AI identity with Cyber Buddy branding
+      return text
+        .replace(/I am [^.]*\./gi, cyberBuddyIntro)
+        .replace(/I am a large language model[^.]*\./gi, cyberBuddyIntro)
+        .replace(/I am an? AI[^.]*\./gi, cyberBuddyIntro)
+        .replace(/\b(gemini|google)\b/gi, "GCEK Cyber Buddy");
+    };
 
     let reply = await callGemini(combinedInput);
-    // reply = maskIdentity(reply);
-
+    reply = maskIdentity(reply, message); // Pass the original message as userQuery
 
     let chat = null;
     let newSessionId = sessionId;
