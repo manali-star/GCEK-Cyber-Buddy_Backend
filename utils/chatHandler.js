@@ -8,41 +8,29 @@ const VIRUSTOTAL_API_KEY = process.env.VIRUSTOTAL_API_KEY;
 /**
  * Sends message (and optional file) to Gemini model.
  */
-async function callGemini(message, fileData = null) {
+async function callGemini(history, fileData = null) {
   if (!GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY is not set in environment variables.');
   }
 
   try {
-    const parts = [];
-    // System prompt to guide Gemini's behavior
-    parts.push({
-      text:`You are Cyber Buddy, a virtual cybersecurity assistant developed by GCEK (Government College of Engineering, Karad).
+    const systemInstruction = {
+      role: 'user',
+      parts: [{
+        text: `You are Cyber Buddy, a virtual cybersecurity assistant developed by GCEK (Government College of Engineering, Karad).
           Your role is to only respond to questions or prompts related to cybersecurity or cyber crime or cybercrime related situations. You do not answer anything unrelated to cybersecurity.
           You speak in a friendly, professional tone—like a helpful tech buddy who educates users about online safety, cyber crimes, data protection, ethical hacking, digital hygiene, phishing, malware, privacy, and related topics.
           If someone asks something unrelated to cybersecurity, politely respond:
           “I'm Cyber Buddy, your cybersecurity assistant from GCEK! I can only help with cybersecurity-related questions. Please ask me something on that topic.”
           Make sure your responses are informative, concise, and easy to understand—even for students or non-technical users.`
-        });
-
-    if (fileData?.type === 'image' && fileData?.content) {
-      parts.push({
-        inline_data: {
-          mime_type: 'image/png',
-          data: fileData.content.split(',')[1]
-        }
-      });
-    }
-
-    parts.push({ text: message });
-
-    const payload = {
-      contents: [{ role: 'user', parts }]
+      }]
     };
+
+    const context = [systemInstruction, ...history];
 
     const response = await axios.post(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      payload,
+      { contents: context },
       { headers: { 'Content-Type': 'application/json' } }
     );
 
@@ -56,6 +44,7 @@ async function callGemini(message, fileData = null) {
     throw new Error(`Gemini API request failed: ${error.message}`);
   }
 }
+
 
 /**
  * Sends a URL or file hash to VirusTotal for scanning.

@@ -6,6 +6,8 @@ const Chat = require('../models/Chat');
 const mongoose = require('mongoose');
 const { callGemini, callVirusTotal } = require('../utils/chatHandler');
 
+const MAX_CONTEXT_MESSAGES = 20; // Keep only the last 20 messages in context for Gemini
+
 // Unified chat endpoint
 router.post('/', authMiddleware, async (req, res) => {
   const { message, sessionId, fileData } = req.body;
@@ -57,16 +59,29 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.json({ success: true, response: reply, source: 'GCEK Cyber Buddy', sessionId: newSessionId });
     }
 
-    // Regular Gemini call
-    let reply = await callGemini(combinedInput);
-
+    // Load previous chat session for memory
     let chat = null;
     let newSessionId = sessionId;
-
     if (sessionId && mongoose.Types.ObjectId.isValid(sessionId)) {
       chat = await Chat.findOne({ _id: sessionId, user: userId });
     }
 
+    const previousMessages = chat?.messages || [];
+    const history = previousMessages.slice(-MAX_CONTEXT_MESSAGES).map(msg => ({
+      role: msg.sender === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.text }]
+    }));
+
+    // Add current user message to history
+    history.push({
+      role: 'user',
+      parts: [{ text: combinedInput }]
+    });
+
+    // Get AI reply from Gemini with memory
+    const reply = await callGemini(history, fileData);
+
+    // Save message + AI reply
     if (chat) {
       chat.messages.push(
         { sender: 'user', text: message.trim(), timestamp: new Date(), file: fileData || undefined },
@@ -93,7 +108,6 @@ router.post('/', authMiddleware, async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to process message', error: err.message });
   }
 });
-
 
 // In your route handler
 router.post('/virustotal-scan', authMiddleware, async (req, res) => {
